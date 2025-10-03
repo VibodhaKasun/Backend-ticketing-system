@@ -1,0 +1,149 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  password        String
+  name            String
+  role            Role      @default(CUSTOMER)
+  createdAt       DateTime  @default(now())
+  
+  // Add back-relations
+  assignedTickets Ticket[]  @relation("AssignedTickets")
+  comments        Comment[]
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  company   String?
+  tickets   Ticket[]
+  createdAt DateTime @default(now())
+}
+
+model Ticket {
+  id             String           @id @default(uuid())
+  title          String
+  description    String
+  status         TicketStatus     @default(OPEN)
+  priority       TicketPriority   @default(MEDIUM)
+  source         ChannelType      @default(WEBSITE)
+  sourceDetail   String?
+  customer       Customer         @relation(fields: [customerId], references: [id])
+  customerId     String
+  assignedTo     User?            @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  assignedToId   String?
+  holdReason     String?
+  heldById       String?
+  comments       Comment[]
+  attachments    Attachment[]
+  history        TicketHistory[]
+  payments       Payment[]
+  communications Communication[]  // Add this missing relation
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+  slaDeadline    DateTime?
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  ticketId  String
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id])
+  content   String
+  public    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Attachment {
+  id         String   @id @default(uuid())
+  ticket     Ticket   @relation(fields: [ticketId], references: [id])
+  ticketId   String
+  filename   String
+  url        String
+  uploadedBy String?
+  createdAt  DateTime @default(now())
+}
+
+model TicketHistory {
+  id        String   @id @default(uuid())
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+  ticketId  String
+  actorId   String?
+  action    String
+  metadata  String?
+  createdAt DateTime @default(now())
+}
+
+model Communication {
+  id        String      @id @default(uuid())
+  ticket    Ticket?     @relation(fields: [ticketId], references: [id])
+  ticketId  String?
+  channel   ChannelType
+  sourceId  String?
+  payload   String
+  processed Boolean     @default(false)
+  createdAt DateTime    @default(now())
+}
+
+model Payment {
+  id           String        @id @default(uuid())
+  ticket       Ticket?       @relation(fields: [ticketId], references: [id])
+  ticketId     String?
+  userId       String
+  amount       Int
+  currency     String        @default("usd")
+  status       PaymentStatus @default(PENDING)
+  stripeIntent String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+enum Role {
+  ADMIN
+  AGENT
+  CUSTOMER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  HOLD
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum ChannelType {
+  WHATSAPP
+  PHONE
+  EMAIL
+  WEBSITE
+  PORTAL
+  CHAT
+  OTHER
+}
